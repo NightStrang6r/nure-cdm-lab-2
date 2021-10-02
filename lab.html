@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lab #2</title>
+        <style>
+            h2 {
+                margin: 1px;
+            }
+            h3 {
+                margin: 1px;
+            }
+            #numOfVariables {
+                margin-bottom: 10px;
+            }
+        </style>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+	</head>
+	<body>
+        <h1>Input</h1>
+        <h2><b>Number of variables:</b></h2>
+        <input id="numOfVariables" type="text" size="40" oninput="printVarInputs()">
+
+        <div id="listOfVar">
+            
+        </div>
+
+        <h2><b>Formula:</b></h2>
+        <div>'+' - disjunction (OR, max), '*' - conjunction (AND, min), '¬' - negation (NOT)</div>
+        <input id="formula" type="text" size="40" oninput="update()"><br><br>
+
+        <h1>Formula</h1>
+        <table>
+            <tr>
+                <td>
+                    <h3>Arranged:</h3>
+                </td>
+                <td>
+                    <h3 id="arranged"></h3>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <h3>RPN:</h3>
+                </td>
+                <td>
+                    <h3 id="rpn"></h3>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <h3>Result:</h3>
+                </td>
+                <td>
+                    <h3 id="result"></h3>
+                </td>
+            </tr>
+        </table>
+        
+		<script>
+			let numOfVariables, listOfVar, result, rpnRes, arrRes;
+
+            numOfVariables = document.getElementById("numOfVariables");
+            listOfVar = document.getElementById("listOfVar");
+            formula = document.getElementById("formula");
+            result = document.getElementById("result");
+            rpnRes = document.getElementById("rpn");
+            arrRes = document.getElementById("arranged");
+
+            function printVarInputs(){
+                listOfVar.innerHTML = "";
+                for(let i = 1; i <= numOfVariables.value; i++){
+                    listOfVar.innerHTML += `<input class="varName" type="text" size="10" placeholder="var ${i} name" oninput="update()"> = <input class="varValue" value="0" type="text" size="10" placeholder="var ${i} value" oninput="update()"> <br>`
+                }
+            }
+
+            function arrangeValues(expr){
+                let variables = {};
+                let varName = document.getElementsByClassName("varName");
+                let varValue = document.getElementsByClassName("varValue");
+
+                for(let i = 0; i < numOfVariables.value; i++){
+                    expr = expr.replaceAll(varName[i].value, varValue[i].value);
+                }
+                
+                return expr;
+            }
+
+            const operators = {
+                '+': (x, y) => x | y,
+                '*': (x, y) => x & y,
+                '¬': (x) => (x + 1) % 2
+            };
+
+            function isOperator(c) {
+                return c == "+" || c == "*" || c == "¬";
+            }
+
+            function leftAssoc(c) {
+                return c != "¬";
+            }
+
+            function priority(c) {
+                if (c == "¬") return 3;
+                if (c == "*") return 2;
+                if (c == "+") return 1;
+                return 0;
+            }
+
+            function infixToPostfix(expr) {
+                let i = 0,
+                    nextToken = function(){
+                        while(i < expr.length && expr[i] == " ") i++;
+                        if(i == expr.length) return "";
+
+                        let b = "";
+                        while(i < expr.length && expr[i] != " " && expr[i] != "(" && expr[i] != ")" && !isOperator(expr[i])) b += expr[i++];
+                        if(b != "") return b;
+                        return expr[i++];
+                    };
+                let S = [],
+                    O = [],
+                    tok;
+                while ((tok = nextToken()) != ""){
+                    if (tok == "(")
+                        S.push(tok);
+                    else if (tok == ")"){
+                        while(S.length > 0 && S[S.length - 1] != "(") O.push(S.pop());
+                        if(S.length == 0)
+                            return "Mismatched brackets.";
+                        S.pop();
+                    } else if (isOperator(tok)){
+                        while(S.length > 0 && isOperator(S[S.length - 1]) && ((leftAssoc(tok) && priority(tok) <= priority(S[S.length - 1])) || (!leftAssoc(tok) && priority(tok) < priority(S[S.length - 1])))){
+                            O.push(S.pop());
+                        }
+                        S.push(tok);
+                    } else {
+                        O.push(tok);
+                    }
+                }
+                while(S.length > 0){
+                    if(!isOperator(S[S.length - 1]))
+                        return "Mismatched brackets.";
+                    O.push(S.pop());
+                }
+                if (O.length == 0)
+                    return "Input error.";
+
+                let s = "";
+                for(let i = 0; i < O.length; i++){
+                    if(i != 0) s += " ";
+                    s += O[i];
+                }
+                return s;
+            }
+
+            function evaluate(expr) {
+                let stack = [];
+                
+                expr.split(' ').forEach((token) => {
+                    if (token in operators) {
+                        if(token === '¬'){
+                            let x = stack.pop();
+                            stack.push(operators[token](x));
+                        }else{
+                            let [y, x] = [stack.pop(), stack.pop()];
+                            stack.push(operators[token](x, y));
+                        }
+                    } else {
+                        stack.push(parseFloat(token));
+                    }
+                });
+
+                return stack.pop();
+            };
+
+            function update(){
+                if(formula.value == '') return;
+
+                let arranged = arrangeValues(formula.value);
+                let rpn = infixToPostfix(arranged);
+
+                arrRes.innerHTML = arranged;
+                rpnRes.innerHTML = rpn;
+                result.innerHTML = evaluate(rpn);
+            }
+		</script>
+	</body>
+</html>
